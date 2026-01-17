@@ -31,8 +31,16 @@
     "multimodal",
     "typescript"
   ],
-  "author": "",
+  "author": "Beinan Hu",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cosplit-now/receipt-ocr.git"
+  },
+  "homepage": "https://github.com/cosplit-now/receipt-ocr#readme",
+  "bugs": {
+    "url": "https://github.com/cosplit-now/receipt-ocr/issues"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.21.0"
   },
