@@ -118,21 +118,26 @@ npm run test:watch
 
 验证 `isEditing` 字段正确初始化。
 
+### 测试 6：自动批量验证
+
+测试 Google Search grounding 自动验证功能。
+
 ## 预期测试结果
 
 如果一切正常，您应该看到：
 
 ```
-✓ tests/integration.test.ts (5) 12345ms
-  ✓ 集成测试：真实图片识别 (5) 12345ms
+✓ tests/integration.test.ts (6) 12345ms
+  ✓ 集成测试：真实图片识别（优化版 - 单次 API 调用） (6) 12345ms
     ✓ 应该识别真实小票并返回正确结构的商品列表 3456ms
     ✓ 应该正确调用验证回调并更新商品名称 3456ms
     ✓ 应该支持不同的图片输入格式 4567ms
     ✓ 应该为每个商品生成唯一的 ID 567ms
     ✓ 应该正确设置 isEditing 字段为 false 456ms
+    ✓ 应该支持自动批量验证（Google Search grounding） 3456ms
 
 Test Files  1 passed (1)
-     Tests  5 passed (5)
+     Tests  6 passed (6)
   Start at  12:34:56
   Duration  12.34s
 ```
@@ -233,14 +238,12 @@ export const productDatabase = new Map<string, string>([
 
 ### API 配额
 
-每次运行测试会调用 Gemini API：
-- 测试 1：1 次调用
-- 测试 2：1 次调用
-- 测试 3：3 次调用（测试不同格式）
-- 测试 4：1 次调用
-- 测试 5：1 次调用
+测试经过优化，共享 API 调用结果：
+- 基础识别：1 次调用（所有测试共享）
+- 验证回调测试：1 次调用（如果有需要验证的商品）
+- 自动验证测试：1 次调用（如果有需要验证的商品）
 
-**总计：约 7 次 API 调用**
+**总计：1-3 次 API 调用**（取决于是否有需要验证的商品）
 
 免费层配额通常足够开发测试使用。
 
@@ -291,6 +294,6 @@ export const productDatabase = new Map<string, string>([
 
 ## 需要帮助？
 
-- 查看 `tests/README.md` 了解更多测试细节
-- 查看 `tests/fixtures/README.md` 了解如何准备测试资源
-- 查看源码注释了解 API 用法
+- 查看 `README.md` 了解完整 API 文档
+- 查看 `examples/` 目录了解使用示例
+- 查看源码注释了解实现细节

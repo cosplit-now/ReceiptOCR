@@ -89,7 +89,7 @@ ReceiptOCR/
 
 ### 1. 商品数据结构
 
-每个提取的商品包含 8 个字段：
+每个提取的商品包含以下字段：
 
 ```typescript
 {
@@ -100,6 +100,8 @@ ReceiptOCR/
   needsVerification: boolean;    // 是否需要验证
   hasTax: boolean;               // 是否含税
   taxAmount?: number;            // 税额（可选）
+  deposit?: number;              // 押金（可选，自动合并）
+  discount?: number;             // 折扣（可选，自动合并）
   isEditing: boolean;            // UI 状态
 }
 ```
