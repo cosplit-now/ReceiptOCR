@@ -47,12 +47,6 @@ describe('集成测试：真实图片识别（优化版 - 单次 API 调用）',
     sharedItems = await extractReceiptItems(imageBuffer);
     console.log(`✓ 识别完成，提取到 ${sharedItems.length} 个商品`);
     
-    // 💾 保存结果到 JSON 文件（移除 needsVerification, id, isEditing）
-    const outputPath = path.join(__dirname, 'test-output.json');
-    const cleanedItems = sharedItems.map(({ id, needsVerification, isEditing, ...item }) => item);
-    fs.writeFileSync(outputPath, JSON.stringify(cleanedItems, null, 2), 'utf-8');
-    console.log(`📝 测试结果已保存到: ${outputPath}`);
-    
     // 📊 显示识别结果的JSON
     console.log('\n📊 识别结果JSON:');
     console.log(JSON.stringify(sharedItems.map(item => ({
@@ -107,12 +101,6 @@ describe('集成测试：真实图片识别（优化版 - 单次 API 调用）',
       console.log('🔍 测试自动验证功能（Google Search grounding）...');
       itemsWithAutoVerify = await extractReceiptItems(imageBuffer, { autoVerify: true });
       console.log(`✓ 自动验证完成`);
-      
-      // 💾 保存自动验证结果到 JSON 文件（移除 needsVerification, id, isEditing）
-      const autoVerifyOutputPath = path.join(__dirname, 'test-output-auto-verify.json');
-      const cleanedAutoVerifyItems = itemsWithAutoVerify.map(({ id, needsVerification, isEditing, ...item }) => item);
-      fs.writeFileSync(autoVerifyOutputPath, JSON.stringify(cleanedAutoVerifyItems, null, 2), 'utf-8');
-      console.log(`📝 自动验证结果已保存到: ${autoVerifyOutputPath}`);
       
       // 📊 显示自动验证后的JSON
       console.log('\n📊 自动验证后的商品JSON:');
