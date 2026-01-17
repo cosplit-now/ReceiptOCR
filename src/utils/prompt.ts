@@ -18,9 +18,31 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
 - taxAmount: 税额（数字，可选）
 
 关于 needsVerification 的判断规则：
-- 如果商品名称是缩写、不完整、被截断或存在歧义，设为 true
-- 如果商品名称清晰完整，设为 false
-- 不要猜测不确定的名称，而是保留原样并设 needsVerification 为 true
+**重要原则：宁可多验证，不要猜测。当不确定时，优先设为 true。**
+
+必须设为 true 的情况：
+- 商品名称是缩写（如 "ORG MLK"、"VEG"、"FRZ"）
+- 商品名称不完整或被截断（如 "CHOCO..."、"有机..."）
+- 包含数字或字母组合但含义不明确（如 "CEMΟΙ 6Χ"、"KS 12X"）
+- 商品名称模糊或可能有多种解释
+- 商品名称包含品牌缩写或代码
+- 只有品类没有具体品名（如 "面包"、"饮料"）
+- 商品名称中混杂了数字但不清楚具体规格（如 "牛奶 2"）
+- 任何你不能100%确定完整含义的名称
+
+可以设为 false 的情况（必须同时满足以下所有条件）：
+- 商品名称完整、清晰、无缩写
+- 包含完整的品牌和规格信息（如 "可口可乐瓶装 330ml"）
+- 你能100%确定这个名称的准确含义
+- 普通消费者看到这个名称能立即理解是什么商品
+
+示例：
+- "ORG MLK" → needsVerification: true（缩写）
+- "CEMΟΙ 6Χ" → needsVerification: true（包含不明确的字符）
+- "面包" → needsVerification: true（只有品类，没有具体信息）
+- "KS Milk" → needsVerification: true（品牌缩写）
+- "有机牛奶 Kirkland Signature 1L" → needsVerification: false（完整清晰）
+- "富士苹果" → needsVerification: false（完整且明确）
 
 **重要：附加费用处理规则**
 对于押金（Deposit、deposit、押金等）和折扣（TPD、discount、折扣等）这类附加费用：
@@ -42,9 +64,11 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
 
 示例输出：
 [
-  {"name": "有机牛奶 1L", "price": 12.5, "quantity": 1, "needsVerification": false, "hasTax": false},
-  {"name": "可口可乐瓶装", "price": 3.5, "quantity": 2, "needsVerification": false, "hasTax": true, "taxAmount": 0.35},
+  {"name": "Kirkland Signature 有机牛奶 1L", "price": 12.5, "quantity": 1, "needsVerification": false, "hasTax": false},
+  {"name": "可口可乐", "price": 3.5, "quantity": 2, "needsVerification": true, "hasTax": true, "taxAmount": 0.35},
   {"name": "Deposit VL", "price": 0.5, "quantity": 2, "needsVerification": false, "hasTax": false, "isAttachment": true, "attachmentType": "deposit"},
   {"name": "TPD", "price": -0.5, "quantity": 1, "needsVerification": false, "hasTax": false, "isAttachment": true, "attachmentType": "discount"},
-  {"name": "ORG BRD", "price": 8.0, "quantity": 1, "needsVerification": true, "hasTax": true, "taxAmount": 0.8}
+  {"name": "ORG BRD", "price": 8.0, "quantity": 1, "needsVerification": true, "hasTax": true, "taxAmount": 0.8},
+  {"name": "CEMΟΙ 6Χ", "price": 15.0, "quantity": 1, "needsVerification": true, "hasTax": false},
+  {"name": "KS Apple", "price": 4.5, "quantity": 3, "needsVerification": true, "hasTax": false}
 ]`;
