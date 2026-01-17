@@ -6,7 +6,7 @@ import type { ReceiptItem } from '../types.js';
 interface RawReceiptItem {
   name: string;
   price: number;
-  quantity?: number;
+  quantity: number; // 必填，normalizeRawItem 会提供默认值 1
   needsVerification: boolean;
   hasTax: boolean;
   taxAmount?: number;
