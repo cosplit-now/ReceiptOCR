@@ -7,52 +7,40 @@
 ```json
 [
   {
-    "id": "1737123456789-abc123",
     "name": "有机牛奶 1L",
     "price": 12.5,
     "quantity": 1,
-    "needsVerification": false,
-    "hasTax": false,
-    "isEditing": false
+    "hasTax": false
   },
   {
-    "id": "1737123456790-def456",
     "name": "可口可乐瓶装 330ml",
     "price": 3.5,
     "quantity": 2,
-    "needsVerification": false,
     "hasTax": true,
     "taxAmount": 0.35,
     "deposit": 1.0,      // ✨ 押金已合并（原本是独立的 "Deposit VL" 项）
-    "discount": -0.5,    // ✨ 折扣已合并（原本是独立的 "TPD" 项）
-    "isEditing": false
+    "discount": -0.5     // ✨ 折扣已合并（原本是独立的 "TPD" 项）
   },
   {
-    "id": "1737123456791-ghi789",
     "name": "有机面包",
     "price": 8.0,
     "quantity": 1,
-    "needsVerification": false,
     "hasTax": true,
-    "taxAmount": 0.8,
-    "isEditing": false
+    "taxAmount": 0.8
   }
 ]
 ```
 
 ## 字段说明
 
-### 必有字段（8个）
+### 必有字段（4个）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | `string` | 唯一标识符，格式：`{timestamp}-{random}` |
 | `name` | `string` | 商品名称 |
 | `price` | `number` | 商品单价（正数） |
 | `quantity` | `number` | 商品数量（默认 1） |
-| `needsVerification` | `boolean` | LLM 判断是否需要验证（缩写/模糊） |
 | `hasTax` | `boolean` | 是否含税 |
-| `isEditing` | `boolean` | UI 状态，默认 false |
 
 ### 可选字段（3个）
 
@@ -106,16 +94,13 @@
 ```json
 [
   {
-    "id": "1737123456790-def456",
     "name": "可口可乐瓶装 330ml",
     "price": 3.5,
     "quantity": 2,
-    "needsVerification": false,
     "hasTax": true,
     "taxAmount": 0.35,
     "deposit": 1.0,      // 0.5 * 2 = 1.0
-    "discount": -0.5,    // -0.5
-    "isEditing": false
+    "discount": -0.5     // -0.5
   }
 ]
 ```
@@ -154,15 +139,12 @@ const total = calculateItemTotal(item);
 
 ```typescript
 interface ReceiptItem {
-  id: string;
   name: string;
   price: number;
   quantity: number;
-  needsVerification: boolean;
   hasTax: boolean;
   taxAmount?: number;
-  deposit?: number;      // ✨ 新增：押金
-  discount?: number;     // ✨ 新增：折扣
-  isEditing: boolean;
+  deposit?: number;      // ✨ 押金（自动合并）
+  discount?: number;     // ✨ 折扣（自动合并）
 }
 ```

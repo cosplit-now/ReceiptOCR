@@ -45,25 +45,19 @@ const items = await extractReceiptItems(imageBuffer);
 console.log(items);
 // [
 //   {
-//     id: "1737123456789-abc123",
 //     name: "有机牛奶 1L",
 //     price: 12.5,
 //     quantity: 1,
-//     needsVerification: false,
-//     hasTax: false,
-//     isEditing: false
+//     hasTax: false
 //   },
 //   {
-//     id: "1737123456790-def456",
 //     name: "可口可乐瓶装",
 //     price: 3.5,
 //     quantity: 2,
-//     needsVerification: false,
 //     hasTax: true,
 //     taxAmount: 0.35,
 //     deposit: 0.5,      // 押金已自动合并
-//     discount: -0.5,    // 折扣已自动合并
-//     isEditing: false
+//     discount: -0.5     // 折扣已自动合并
 //   },
 //   ...
 // ]
@@ -75,16 +69,13 @@ console.log(items);
 
 ```typescript
 interface ReceiptItem {
-  id: string;                    // 库生成的唯一标识
   name: string;                  // 商品名称
   price: number;                 // 单价
   quantity: number;              // 数量（默认 1）
-  needsVerification: boolean;    // LLM 判断是否需要验证
   hasTax: boolean;               // 是否含税
   taxAmount?: number;            // 税额（可选）
   deposit?: number;              // 押金（可选，自动合并）
   discount?: number;             // 折扣（可选，自动合并）
-  isEditing: boolean;            // UI 状态（默认 false）
 }
 ```
 
@@ -110,15 +101,15 @@ const items = await extractReceiptItems(imageBuffer, {
   autoVerify: true, // 启用自动验证
 });
 
-// 验证失败的商品会保持 needsVerification: true
-const needsReview = items.filter(item => item.needsVerification);
-console.log(`有 ${needsReview.length} 个商品需要人工确认`);
+// 库会自动验证并补全模糊的商品名称
+// 如果验证失败，会保持原始名称
 ```
 
 **优势**：
 - ✅ 批量处理，只需 1 次额外 API 调用
 - ✅ 使用 Google Search，覆盖面广
 - ✅ 自动处理，无需额外代码
+- ✅ 验证失败时自动保持原始数据
 
 详细文档：[自动验证功能](./docs/AUTO_VERIFICATION.md)
 
@@ -165,8 +156,8 @@ const items = await extractReceiptItems(imageBuffer, {
 type VerificationCallback = (
   name: string,
   context: {
-    rawText: string;                      // OCR 原始文本
-    allItems: Partial<ReceiptItem>[];     // 所有已解析商品
+    rawText: string;           // OCR 原始文本
+    allItems: ReceiptItem[];   // 所有已解析商品
   }
 ) => Promise<{ verifiedName: string } | null>;
 ```
@@ -223,9 +214,9 @@ npm run dev
 ## 设计原则
 
 1. **无状态**：每次调用独立，无副作用
-2. **确定性**：不猜测不确定的数据，而是标记 `needsVerification`
+2. **确定性**：不猜测不确定的数据，通过验证机制确保准确性
 3. **可组合性**：验证逻辑通过依赖注入提供
-4. **正确性优先**：宁可返回不完整但准确的数据
+4. **正确性优先**：内部处理不确定性，对外只返回可靠数据
 
 ## License
 

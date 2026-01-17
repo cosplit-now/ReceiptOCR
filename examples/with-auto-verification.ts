@@ -26,31 +26,34 @@ async function main() {
     console.log(`\n${index + 1}. ${item.name}`);
     console.log(`   价格: ¥${item.price.toFixed(2)} × ${item.quantity} = ¥${(item.price * item.quantity).toFixed(2)}`);
     
-    if (item.needsVerification) {
-      console.log(`   ⚠️  需要验证（自动验证未找到匹配结果）`);
-    } else {
-      console.log(`   ✅ 已确认`);
-    }
-    
     if (item.hasTax && item.taxAmount) {
       console.log(`   含税: ¥${item.taxAmount.toFixed(2)}`);
+    }
+    
+    if (item.deposit) {
+      console.log(`   押金: ¥${item.deposit.toFixed(2)}`);
+    }
+    
+    if (item.discount) {
+      console.log(`   折扣: ¥${item.discount.toFixed(2)}`);
     }
   });
 
   console.log('\n' + '─'.repeat(80));
 
   // 统计信息
-  const needsVerificationCount = items.filter(item => item.needsVerification).length;
-  const verifiedCount = items.length - needsVerificationCount;
   const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const totalTax = items.reduce((sum, item) => sum + (item.taxAmount || 0), 0);
+  const totalDeposit = items.reduce((sum, item) => sum + (item.deposit || 0), 0);
+  const totalDiscount = items.reduce((sum, item) => sum + (item.discount || 0), 0);
 
   console.log(`\n📊 统计信息:`);
-  console.log(`   已确认商品: ${verifiedCount} / ${items.length}`);
-  console.log(`   待验证商品: ${needsVerificationCount} / ${items.length}`);
+  console.log(`   商品数量: ${items.length}`);
   console.log(`   商品总额: ¥${totalAmount.toFixed(2)}`);
   console.log(`   税费总额: ¥${totalTax.toFixed(2)}`);
-  console.log(`   应付金额: ¥${(totalAmount + totalTax).toFixed(2)}`);
+  console.log(`   押金总额: ¥${totalDeposit.toFixed(2)}`);
+  console.log(`   折扣总额: ¥${totalDiscount.toFixed(2)}`);
+  console.log(`   应付金额: ¥${(totalAmount + totalTax + totalDeposit + totalDiscount).toFixed(2)}`);
 }
 
 main().catch((error) => {

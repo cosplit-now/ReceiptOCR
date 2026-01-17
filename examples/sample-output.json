@@ -1,54 +1,39 @@
 [
   {
-    "id": "1737123456789-abc123",
     "name": "有机牛奶 1L",
     "price": 12.5,
     "quantity": 1,
-    "needsVerification": false,
-    "hasTax": false,
-    "isEditing": false
+    "hasTax": false
   },
   {
-    "id": "1737123456790-def456",
     "name": "可口可乐瓶装 330ml",
     "price": 3.5,
     "quantity": 2,
-    "needsVerification": false,
     "hasTax": true,
     "taxAmount": 0.35,
     "deposit": 1.0,
-    "discount": -0.5,
-    "isEditing": false
+    "discount": -0.5
   },
   {
-    "id": "1737123456791-ghi789",
     "name": "有机面包",
     "price": 8.0,
     "quantity": 1,
-    "needsVerification": false,
     "hasTax": true,
-    "taxAmount": 0.8,
-    "isEditing": false
+    "taxAmount": 0.8
   },
   {
-    "id": "1737123456792-jkl012",
     "name": "啤酒 500ml",
     "price": 6.5,
     "quantity": 6,
-    "needsVerification": false,
     "hasTax": true,
     "taxAmount": 1.95,
-    "deposit": 3.0,
-    "isEditing": false
+    "deposit": 3.0
   },
   {
-    "id": "1737123456793-mno345",
     "name": "有机苹果",
     "price": 4.2,
     "quantity": 1,
-    "needsVerification": false,
     "hasTax": false,
-    "discount": -0.8,
-    "isEditing": false
+    "discount": -0.8
   }
 ]

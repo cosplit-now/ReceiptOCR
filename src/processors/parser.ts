@@ -1,7 +1,7 @@
-import type { ReceiptItem } from '../types.js';
+import type { InternalReceiptItem } from '../types.js';
 
 /**
- * LLM 返回的原始商品数据结构（未包含 id 和 isEditing）
+ * LLM 返回的原始商品数据结构
  */
 interface RawReceiptItem {
   name: string;
@@ -16,16 +16,6 @@ interface RawReceiptItem {
   isAttachment?: boolean;
   attachmentType?: 'deposit' | 'discount';
   attachedTo?: number;
-}
-
-/**
- * 生成唯一的商品 ID
- * 格式：{timestamp}-{random}，例如 "1768678371144-yqhyjoo"
- */
-function generateItemId(): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 9);
-  return `${timestamp}-${random}`;
 }
 
 /**
@@ -126,13 +116,13 @@ function mergeAttachments(items: RawReceiptItem[]): RawReceiptItem[] {
 }
 
 /**
- * 解析 LLM 返回的 JSON 响应为 ReceiptItem 数组
+ * 解析 LLM 返回的 JSON 响应为内部商品数组
  * 
  * @param responseText - LLM 返回的文本响应
- * @returns 解析后的商品数组（未包含 id 和 isEditing）
+ * @returns 解析后的商品数组（包含 needsVerification 内部字段）
  * @throws 如果解析失败
  */
-export function parseResponse(responseText: string): Omit<ReceiptItem, 'id' | 'isEditing'>[] {
+export function parseResponse(responseText: string): InternalReceiptItem[] {
   try {
     // 提取 JSON
     const jsonText = extractJson(responseText);
@@ -167,17 +157,3 @@ export function parseResponse(responseText: string): Omit<ReceiptItem, 'id' | 'i
   }
 }
 
-/**
- * 将解析后的商品数据转换为完整的 ReceiptItem
- * 添加 id 和 isEditing 字段
- * 
- * @param items - 解析后的商品数组
- * @returns 完整的 ReceiptItem 数组
- */
-export function finalizeItems(items: Omit<ReceiptItem, 'id' | 'isEditing'>[]): ReceiptItem[] {
-  return items.map((item) => ({
-    ...item,
-    id: generateItemId(),
-    isEditing: false,
-  }));
-}

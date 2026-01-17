@@ -2,7 +2,7 @@ import type { ImageInput, ExtractOptions, ReceiptItem, VerificationContext } fro
 import { callGemini } from './adapters/gemini.js';
 import { batchVerifyItems } from './adapters/verifier.js';
 import { EXTRACTION_PROMPT } from './utils/prompt.js';
-import { parseResponse, finalizeItems } from './processors/parser.js';
+import { parseResponse } from './processors/parser.js';
 
 /**
  * 从小票图片中提取商品数据
@@ -46,16 +46,10 @@ export async function extractReceiptItems(
   // 2. 解析响应
   const parsedItems = parseResponse(responseText);
 
-  // 3. 准备验证上下文
-  const verificationContext: VerificationContext = {
-    rawText: responseText,
-    allItems: parsedItems,
-  };
-
-  // 4. 处理需要验证的商品
+  // 3. 处理需要验证的商品
   const itemsNeedingVerification = parsedItems.filter(item => item.needsVerification);
   
-  // 4a. 自动验证（使用 Google Search grounding）
+  // 3a. 自动验证（使用 Google Search grounding）
   if (options?.autoVerify && itemsNeedingVerification.length > 0) {
     try {
       const verificationMap = await batchVerifyItems(itemsNeedingVerification);
@@ -77,8 +71,15 @@ export async function extractReceiptItems(
     }
   }
   
-  // 4b. 用户提供的验证回调（可与 autoVerify 共存）
+  // 3b. 用户提供的验证回调（可与 autoVerify 共存）
   if (options?.verifyCallback) {
+    // 准备验证上下文（转换为公开类型）
+    const publicItems: ReceiptItem[] = parsedItems.map(({ needsVerification, ...item }) => item);
+    const verificationContext: VerificationContext = {
+      rawText: responseText,
+      allItems: publicItems,
+    };
+
     for (const item of parsedItems) {
       if (item.needsVerification) {
         try {
@@ -97,8 +98,8 @@ export async function extractReceiptItems(
     }
   }
 
-  // 5. 最终化：添加 id 和 isEditing 字段
-  const finalItems = finalizeItems(parsedItems);
+  // 4. 转换为公开类型：移除内部字段 needsVerification
+  const finalItems: ReceiptItem[] = parsedItems.map(({ needsVerification, ...item }) => item);
 
   return finalItems;
 }

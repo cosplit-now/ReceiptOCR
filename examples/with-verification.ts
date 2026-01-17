@@ -64,16 +64,16 @@ async function main() {
       console.log(`\n${index + 1}. ${item.name}`);
       console.log(`   价格: ¥${item.price}`);
       console.log(`   数量: ${item.quantity}`);
-      console.log(`   需要验证: ${item.needsVerification ? '是' : '否'}`);
       console.log(`   含税: ${item.hasTax ? '是' : '否'}`);
+      if (item.deposit) {
+        console.log(`   押金: ¥${item.deposit}`);
+      }
+      if (item.discount) {
+        console.log(`   折扣: ¥${item.discount}`);
+      }
     });
     
-    // 统计
-    const verifiedCount = items.filter(item => !item.needsVerification).length;
-    const needsVerificationCount = items.filter(item => item.needsVerification).length;
-    console.log(`\n统计:`);
-    console.log(`  已验证: ${verifiedCount}`);
-    console.log(`  待验证: ${needsVerificationCount}`);
+    console.log(`\n✓ 所有商品已提取并验证完成`);
     
   } catch (error) {
     console.error('提取失败:', error);

@@ -7,12 +7,13 @@
 ## 工作原理
 
 1. **识别阶段**：Gemini 从小票图片中提取商品信息
-2. **标记阶段**：对于不完整、缩写或模糊的商品名称，设置 `needsVerification: true`
+2. **内部标记阶段**：对于不完整、缩写或模糊的商品名称，在内部标记为需要验证
 3. **批量验证**：如果启用 `autoVerify`，库会将所有需要验证的商品一次性发送给 Gemini
 4. **搜索增强**：Gemini 使用 Google Search grounding 查找完整的商品名称
 5. **结果应用**：
-   - 找到匹配：更新商品名称，设置 `needsVerification: false`
-   - 未找到：保持原名称，`needsVerification` 保持为 `true`
+   - 找到匹配：更新为完整的商品名称
+   - 未找到：保持原始识别的名称
+6. **输出清理**：最终返回的结果中不包含内部标记字段
 
 ## 使用方法
 
@@ -40,13 +41,9 @@ async function processReceipt() {
     autoVerify: true,
   });
   
-  // 检查结果
+  // 直接使用结果，库已经自动处理了验证
   items.forEach(item => {
-    if (item.needsVerification) {
-      console.log(`⚠️ ${item.name} - 需要人工确认`);
-    } else {
-      console.log(`✅ ${item.name} - 已验证`);
-    }
+    console.log(`✅ ${item.name} - ¥${item.price} x ${item.quantity}`);
   });
 }
 ```
@@ -121,8 +118,8 @@ const items = await extractReceiptItems(imageBuffer, {
 
 1. 记录错误到控制台（`console.error`）
 2. 保持原始识别结果
-3. 保持 `needsVerification: true`
-4. 继续处理其他商品
+3. 继续处理其他商品
+4. 正常返回结果（不会抛出异常）
 
 ```typescript
 // 验证失败不会抛出异常
@@ -130,11 +127,9 @@ const items = await extractReceiptItems(imageBuffer, {
   autoVerify: true,
 });
 
-// 检查是否有需要人工确认的商品
-const needsManualReview = items.filter(item => item.needsVerification);
-if (needsManualReview.length > 0) {
-  console.log(`有 ${needsManualReview.length} 个商品需要人工确认`);
-}
+// 即使验证失败，也会返回原始识别的商品名称
+// 这些名称虽然可能不完整，但仍然是从小票中识别出的真实数据
+console.log(`成功提取 ${items.length} 个商品`);
 ```
 
 ## 最佳实践
@@ -151,39 +146,34 @@ const items = await extractReceiptItems(imageBuffer, {
 });
 ```
 
-### 2. 处理验证失败的商品
+### 2. 组合自定义验证
+
+如果需要更高的准确性，可以结合自定义验证回调：
 
 ```typescript
 const items = await extractReceiptItems(imageBuffer, {
-  autoVerify: true,
+  autoVerify: true, // 先用 Google Search 验证
+  verifyCallback: async (name, context) => {
+    // 再用自定义产品库验证
+    const result = await myProductDB.search(name);
+    return result ? { verifiedName: result.name } : null;
+  },
 });
 
-// 分类处理
-const verified = items.filter(item => !item.needsVerification);
-const needsReview = items.filter(item => item.needsVerification);
-
-console.log(`已验证: ${verified.length}`);
-console.log(`需要审核: ${needsReview.length}`);
-
-// 可以将需要审核的商品展示给用户
-needsReview.forEach(item => {
-  showToUser(item); // 让用户手动确认或编辑
-});
+console.log(`成功提取 ${items.length} 个商品`);
 ```
 
-### 3. 监控验证成功率
+### 3. 处理大量商品
+
+对于商品数量较多的小票，自动验证可以显著节省 API 调用次数：
 
 ```typescript
-async function processWithMetrics(imageBuffer: Buffer) {
+async function processBulkReceipt(imageBuffer: Buffer) {
   const items = await extractReceiptItems(imageBuffer, {
-    autoVerify: true,
+    autoVerify: true, // 批量验证，仅 1 次额外 API 调用
   });
   
-  const totalItems = items.length;
-  const verifiedItems = items.filter(item => !item.needsVerification).length;
-  const successRate = (verifiedItems / totalItems) * 100;
-  
-  console.log(`验证成功率: ${successRate.toFixed(1)}%`);
+  console.log(`提取了 ${items.length} 个商品`);
   
   return items;
 }
@@ -196,26 +186,32 @@ async function processWithMetrics(imageBuffer: Buffer) {
 3. **可能的延迟**：批量验证会增加处理时间（通常 2-5 秒）
 4. **搜索质量**：依赖 Google Search 的结果质量
 
-## 示例输出
+## 示例对比
 
-### 验证前
+### 不使用自动验证
 
-```json
-[
-  { "name": "ORG MLK", "needsVerification": true },
-  { "name": "CEMΟΙ 6Χ", "needsVerification": true },
-  { "name": "富士苹果", "needsVerification": false }
-]
+```typescript
+const items = await extractReceiptItems(imageBuffer);
+// 返回原始识别结果：
+// [
+//   { "name": "ORG MLK", "price": 12.5, ... },
+//   { "name": "CEMΟΙ 6Χ", "price": 8.0, ... },
+//   { "name": "富士苹果", "price": 4.2, ... }
+// ]
 ```
 
-### 验证后
+### 使用自动验证
 
-```json
-[
-  { "name": "Organic Milk 1L", "needsVerification": false },
-  { "name": "CEMOI Chocolate 6x100g", "needsVerification": false },
-  { "name": "富士苹果", "needsVerification": false }
-]
+```typescript
+const items = await extractReceiptItems(imageBuffer, {
+  autoVerify: true
+});
+// 返回验证后的结果：
+// [
+//   { "name": "Organic Milk 1L", "price": 12.5, ... },
+//   { "name": "CEMOI Chocolate 6x100g", "price": 8.0, ... },
+//   { "name": "富士苹果", "price": 4.2, ... }
+// ]
 ```
 
 ## 故障排查

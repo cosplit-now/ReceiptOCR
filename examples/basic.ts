@@ -23,10 +23,15 @@ async function main() {
       console.log(`\n${index + 1}. ${item.name}`);
       console.log(`   价格: ¥${item.price}`);
       console.log(`   数量: ${item.quantity}`);
-      console.log(`   需要验证: ${item.needsVerification ? '是' : '否'}`);
       console.log(`   含税: ${item.hasTax ? '是' : '否'}`);
       if (item.taxAmount) {
         console.log(`   税额: ¥${item.taxAmount}`);
+      }
+      if (item.deposit) {
+        console.log(`   押金: ¥${item.deposit}`);
+      }
+      if (item.discount) {
+        console.log(`   折扣: ¥${item.discount}`);
       }
     });
   } catch (error) {

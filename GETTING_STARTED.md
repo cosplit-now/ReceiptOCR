@@ -93,32 +93,23 @@ ReceiptOCR/
 
 ```typescript
 {
-  id: string;                    // 自动生成
   name: string;                  // 商品名称
   price: number;                 // 单价
   quantity: number;              // 数量
-  needsVerification: boolean;    // 是否需要验证
   hasTax: boolean;               // 是否含税
   taxAmount?: number;            // 税额（可选）
   deposit?: number;              // 押金（可选，自动合并）
   discount?: number;             // 折扣（可选，自动合并）
-  isEditing: boolean;            // UI 状态
 }
 ```
 
-### 2. needsVerification 字段
+### 2. 内部验证机制
 
-LLM 会判断商品名称是否：
-- 是缩写（如 "ORG MLK"）
-- 不完整（如 "面包..."）
-- 被截断
-- 存在歧义
-
-如果是，则 `needsVerification` 设为 `true`。
+库在内部会自动判断商品名称是否不完整或模糊（如缩写、截断等），并在需要时自动触发验证流程。这个过程对调用者透明，返回的结果已经过处理。
 
 ### 3. 验证回调
 
-当 `needsVerification: true` 时，可以通过回调进行补全：
+当库检测到不完整的商品名称时，会自动调用验证回调进行补全：
 
 ```typescript
 const items = await extractReceiptItems(imageBuffer, {
