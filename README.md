@@ -45,12 +45,24 @@ const items = await extractReceiptItems(imageBuffer);
 console.log(items);
 // [
 //   {
-//     id: "1737123456789",
+//     id: "1737123456789-abc123",
 //     name: "有机牛奶 1L",
 //     price: 12.5,
 //     quantity: 1,
 //     needsVerification: false,
 //     hasTax: false,
+//     isEditing: false
+//   },
+//   {
+//     id: "1737123456790-def456",
+//     name: "可口可乐瓶装",
+//     price: 3.5,
+//     quantity: 2,
+//     needsVerification: false,
+//     hasTax: true,
+//     taxAmount: 0.35,
+//     deposit: 0.5,      // 押金已自动合并
+//     discount: -0.5,    // 折扣已自动合并
 //     isEditing: false
 //   },
 //   ...
@@ -70,9 +82,20 @@ interface ReceiptItem {
   needsVerification: boolean;    // LLM 判断是否需要验证
   hasTax: boolean;               // 是否含税
   taxAmount?: number;            // 税额（可选）
+  deposit?: number;              // 押金（可选，自动合并）
+  discount?: number;             // 折扣（可选，自动合并）
   isEditing: boolean;            // UI 状态（默认 false）
 }
 ```
+
+### 附加费用自动合并
+
+库会自动识别并合并押金（Deposit）和折扣（TPD）到对应的商品中，而不是作为独立的商品项返回：
+
+- **押金（deposit）**：如 "Deposit VL"，会被合并到对应的瓶装商品中
+- **折扣（discount）**：如 "TPD"，会被合并到对应的商品中（通常为负数）
+
+这意味着您不需要手动处理这些附加费用，它们会自动关联到正确的商品上。
 
 ## 高级用法
 

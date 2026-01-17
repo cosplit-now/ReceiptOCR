@@ -10,6 +10,12 @@ interface RawReceiptItem {
   needsVerification: boolean;
   hasTax: boolean;
   taxAmount?: number;
+  deposit?: number;
+  discount?: number;
+  // 附加费用标记（用于解析时的临时字段）
+  isAttachment?: boolean;
+  attachmentType?: 'deposit' | 'discount';
+  attachedTo?: number;
 }
 
 /**
@@ -62,7 +68,61 @@ function normalizeRawItem(raw: any): RawReceiptItem {
     needsVerification: Boolean(raw.needsVerification),
     hasTax: Boolean(raw.hasTax),
     taxAmount: typeof raw.taxAmount === 'number' ? raw.taxAmount : undefined,
+    deposit: typeof raw.deposit === 'number' ? raw.deposit : undefined,
+    discount: typeof raw.discount === 'number' ? raw.discount : undefined,
+    // 保留附加费用标记用于后续处理
+    isAttachment: raw.isAttachment === true ? true : undefined,
+    attachmentType: raw.attachmentType,
+    attachedTo: typeof raw.attachedTo === 'number' ? raw.attachedTo : undefined,
   };
+}
+
+/**
+ * 合并附加费用（押金、折扣）到对应的商品中
+ * 使用位置关系：附加费用紧跟在对应商品后面
+ * 
+ * @param items - 包含附加费用标记的商品列表
+ * @returns 合并后的商品列表（不包含独立的附加费用项）
+ */
+function mergeAttachments(items: RawReceiptItem[]): RawReceiptItem[] {
+  const result: RawReceiptItem[] = [];
+  let currentItem: RawReceiptItem | null = null;
+  
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    
+    if (!item.isAttachment) {
+      // 如果之前有商品，先保存
+      if (currentItem) {
+        result.push(currentItem);
+      }
+      // 开始新商品（深拷贝）
+      currentItem = { ...item };
+    } else {
+      // 这是附加费用，合并到当前商品
+      if (currentItem) {
+        if (item.attachmentType === 'deposit') {
+          // 押金：累加（考虑数量）
+          currentItem.deposit = (currentItem.deposit || 0) + (item.price * item.quantity);
+        } else if (item.attachmentType === 'discount') {
+          // 折扣：累加（通常已经是负数）
+          currentItem.discount = (currentItem.discount || 0) + item.price;
+        }
+      }
+      // 如果没有前置商品，跳过这个孤立的附加费用
+    }
+  }
+  
+  // 保存最后一个商品
+  if (currentItem) {
+    result.push(currentItem);
+  }
+  
+  // 移除临时字段
+  return result.map(item => {
+    const { isAttachment, attachmentType, attachedTo, ...cleanItem } = item;
+    return cleanItem;
+  });
 }
 
 /**
@@ -95,7 +155,10 @@ export function parseResponse(responseText: string): Omit<ReceiptItem, 'id' | 'i
       }
     });
 
-    return items;
+    // 合并附加费用到对应的商品
+    const mergedItems = mergeAttachments(items);
+
+    return mergedItems;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to parse LLM response: ${error.message}\n\nResponse:\n${responseText}`);

@@ -45,7 +45,40 @@ describe('集成测试：真实图片识别（优化版 - 单次 API 调用）',
     // 🎯 只调用一次 API - 获取基础识别结果
     console.log('\n📸 开始识别小票图片（这是唯一的 API 调用）...');
     sharedItems = await extractReceiptItems(imageBuffer);
-    console.log(`✓ 识别完成，提取到 ${sharedItems.length} 个商品\n`);
+    console.log(`✓ 识别完成，提取到 ${sharedItems.length} 个商品`);
+    
+    // 💾 保存结果到 JSON 文件（移除 needsVerification, id, isEditing）
+    const outputPath = path.join(__dirname, 'test-output.json');
+    const cleanedItems = sharedItems.map(({ id, needsVerification, isEditing, ...item }) => item);
+    fs.writeFileSync(outputPath, JSON.stringify(cleanedItems, null, 2), 'utf-8');
+    console.log(`📝 测试结果已保存到: ${outputPath}`);
+    
+    // 📊 显示识别结果的JSON
+    console.log('\n📊 识别结果JSON:');
+    console.log(JSON.stringify(sharedItems.map(item => ({
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      needsVerification: item.needsVerification,
+      deposit: item.deposit,
+      discount: item.discount
+    })), null, 2));
+    
+    // 📋 表格式显示
+    console.log('\n📋 商品-价格对照表:');
+    console.log('┌─────────────────────────────────┬──────────┬────────┬──────────┬──────────┐');
+    console.log('│ 商品名称                        │ 价格     │ 数量   │ 押金     │ 折扣     │');
+    console.log('├─────────────────────────────────┼──────────┼────────┼──────────┼──────────┤');
+    sharedItems.forEach(item => {
+      const name = item.name.padEnd(32);
+      const price = `¥${item.price.toFixed(2)}`.padEnd(8);
+      const quantity = `${item.quantity}`.padEnd(6);
+      const deposit = item.deposit !== undefined ? `¥${item.deposit.toFixed(2)}`.padEnd(8) : '-'.padEnd(8);
+      const discount = item.discount !== undefined ? `¥${item.discount.toFixed(2)}`.padEnd(8) : '-'.padEnd(8);
+      console.log(`│ ${name} │ ${price} │ ${quantity} │ ${deposit} │ ${discount} │`);
+    });
+    console.log('└─────────────────────────────────┴──────────┴────────┴──────────┴──────────┘');
+    console.log();
 
     // 如果有需要验证的商品，再做一次带验证的调用
     const hasItemsNeedingVerification = sharedItems.some(item => item.needsVerification);
@@ -59,12 +92,36 @@ describe('集成测试：真实图片识别（优化版 - 单次 API 调用）',
       };
       
       itemsWithVerification = await extractReceiptItems(imageBuffer, { verifyCallback });
-      console.log(`✓ 验证完成\n`);
+      console.log(`✓ 验证完成`);
+      
+      // 📊 显示验证后的JSON
+      console.log('\n📊 验证后的商品JSON:');
+      console.log(JSON.stringify(itemsWithVerification.map(item => ({
+        name: item.name,
+        price: item.price,
+        needsVerification: item.needsVerification
+      })), null, 2));
+      console.log();
       
       // 测试自动验证功能（使用 Google Search grounding）
       console.log('🔍 测试自动验证功能（Google Search grounding）...');
       itemsWithAutoVerify = await extractReceiptItems(imageBuffer, { autoVerify: true });
-      console.log(`✓ 自动验证完成\n`);
+      console.log(`✓ 自动验证完成`);
+      
+      // 💾 保存自动验证结果到 JSON 文件（移除 needsVerification, id, isEditing）
+      const autoVerifyOutputPath = path.join(__dirname, 'test-output-auto-verify.json');
+      const cleanedAutoVerifyItems = itemsWithAutoVerify.map(({ id, needsVerification, isEditing, ...item }) => item);
+      fs.writeFileSync(autoVerifyOutputPath, JSON.stringify(cleanedAutoVerifyItems, null, 2), 'utf-8');
+      console.log(`📝 自动验证结果已保存到: ${autoVerifyOutputPath}`);
+      
+      // 📊 显示自动验证后的JSON
+      console.log('\n📊 自动验证后的商品JSON:');
+      console.log(JSON.stringify(itemsWithAutoVerify.map(item => ({
+        name: item.name,
+        price: item.price,
+        needsVerification: item.needsVerification
+      })), null, 2));
+      console.log();
     } else {
       itemsWithVerification = sharedItems;
       itemsWithAutoVerify = sharedItems;
@@ -80,6 +137,10 @@ describe('集成测试：真实图片识别（优化版 - 单次 API 调用）',
     // 验证至少有一个商品
     expect(sharedItems.length).toBeGreaterThan(0);
     
+    // 📦 输出完整的JSON结构
+    console.log('\n📦 完整的商品JSON数据:');
+    console.log(JSON.stringify(sharedItems, null, 2));
+    
     // 验证每个商品的字段结构
     sharedItems.forEach((item, index) => {
       console.log(`\n商品 ${index + 1}:`);
@@ -90,6 +151,12 @@ describe('集成测试：真实图片识别（优化版 - 单次 API 调用）',
       console.log(`  含税: ${item.hasTax ? '是' : '否'}`);
       if (item.taxAmount !== undefined) {
         console.log(`  税额: ¥${item.taxAmount}`);
+      }
+      if (item.deposit !== undefined) {
+        console.log(`  押金: ¥${item.deposit}`);
+      }
+      if (item.discount !== undefined) {
+        console.log(`  折扣: ¥${item.discount}`);
       }
       
       // 验证必需字段
@@ -118,6 +185,14 @@ describe('集成测试：真实图片识别（优化版 - 单次 API 调用）',
       if (item.taxAmount !== undefined) {
         expect(typeof item.taxAmount).toBe('number');
         expect(item.taxAmount).toBeGreaterThanOrEqual(0);
+      }
+      
+      if (item.deposit !== undefined) {
+        expect(typeof item.deposit).toBe('number');
+      }
+      
+      if (item.discount !== undefined) {
+        expect(typeof item.discount).toBe('number');
       }
       
       expect(item).toHaveProperty('isEditing');
@@ -215,6 +290,8 @@ describe('集成测试：真实图片识别（优化版 - 单次 API 调用）',
     console.log(`  验证前需要验证的商品数: ${beforeNeedsVerification}`);
     console.log(`  验证后需要验证的商品数: ${afterNeedsVerification}`);
     console.log(`  成功验证的商品数: ${beforeNeedsVerification - afterNeedsVerification}`);
+    
+    console.log(`\n数组长度: sharedItems=${sharedItems.length}, itemsWithAutoVerify=${itemsWithAutoVerify.length}`);
     
     // 显示验证结果对比
     console.log(`\n验证结果对比:`);

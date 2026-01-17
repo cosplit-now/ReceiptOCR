@@ -19,6 +19,10 @@ export interface ReceiptItem {
   taxAmount?: number;
   /** 纯前端 UI 状态字段，true 表示正在编辑，默认 false */
   isEditing: boolean;
+  /** 押金金额（可选，正数表示收押金，负数表示退押金） */
+  deposit?: number;
+  /** 折扣金额（可选，负数表示折扣） */
+  discount?: number;
 }
 
 /**
