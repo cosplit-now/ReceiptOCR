@@ -37,30 +37,19 @@ export async function callGemini(
   const genAI = new GoogleGenerativeAI(apiKey);
   const geminiModel = genAI.getGenerativeModel({ model });
 
-  // 处理图片
-  const processedImage = processImage(image);
+  // 处理图片（现在是异步的）
+  const processedImage = await processImage(image);
 
   // 构建请求内容
   const contents = [];
 
-  // 添加图片部分
-  if (processedImage.url) {
-    // 如果是 URL，使用 fileData
-    contents.push({
-      fileData: {
-        mimeType: processedImage.mimeType,
-        fileUri: processedImage.url,
-      },
-    });
-  } else if (processedImage.data) {
-    // 如果是 base64 数据，使用 inlineData
-    contents.push({
-      inlineData: {
-        mimeType: processedImage.mimeType,
-        data: processedImage.data,
-      },
-    });
-  }
+  // 添加图片部分（统一使用 inlineData）
+  contents.push({
+    inlineData: {
+      mimeType: processedImage.mimeType,
+      data: processedImage.data,
+    },
+  });
 
   // 添加文本提示
   contents.push({

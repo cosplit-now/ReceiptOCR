@@ -7,9 +7,7 @@ export interface ProcessedImage {
   /** 图片的 MIME 类型 */
   mimeType: string;
   /** base64 编码的图片数据（不包含 data URI 前缀） */
-  data?: string;
-  /** 图片 URL（如果输入是 URL） */
-  url?: string;
+  data: string;
 }
 
 /**
@@ -65,10 +63,13 @@ function getMimeTypeFromUrl(url: string): string {
 /**
  * 处理图片输入，转换为 Gemini API 可用的格式
  * 
+ * 根据官方文档，对于 URL 图片，需要先 fetch 获取数据，再转换为 base64。
+ * Gemini API 只接受 inlineData（base64）或通过 File API 上传的文件 URI。
+ * 
  * @param image - 图片输入（Buffer、base64 字符串或 URL）
  * @returns 处理后的图片数据
  */
-export function processImage(image: ImageInput): ProcessedImage {
+export async function processImage(image: ImageInput): Promise<ProcessedImage> {
   // 如果是 Buffer
   if (Buffer.isBuffer(image)) {
     return {
@@ -79,12 +80,26 @@ export function processImage(image: ImageInput): ProcessedImage {
 
   // 如果是字符串
   if (typeof image === 'string') {
-    // URL
+    // URL - 需要 fetch 并转换为 base64
     if (isUrl(image)) {
-      return {
-        mimeType: getMimeTypeFromUrl(image),
-        url: image,
-      };
+      try {
+        const response = await fetch(image);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const base64Data = Buffer.from(arrayBuffer).toString('base64');
+        
+        return {
+          mimeType: getMimeTypeFromUrl(image),
+          data: base64Data,
+        };
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new Error(`Failed to fetch image from URL: ${error.message}`);
+        }
+        throw new Error('Failed to fetch image from URL');
+      }
     }
 
     // data URI
