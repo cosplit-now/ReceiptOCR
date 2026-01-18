@@ -75,16 +75,17 @@ export async function extractReceiptItems(
   
   // 3b. 用户提供的验证回调（可与 autoVerify 共存）
   if (options?.verifyCallback) {
-    // 准备验证上下文（转换为公开类型）
-    const publicItems: ReceiptItem[] = parsedItems.map(({ needsVerification, ...item }) => item);
-    const verificationContext: VerificationContext = {
-      rawText: responseText,
-      allItems: publicItems,
-    };
-
     for (const item of parsedItems) {
       if (item.needsVerification) {
         try {
+          // 每次调用时动态创建验证上下文，确保包含最新的验证状态
+          // 创建深拷贝以防止外部修改内部数据
+          const publicItems: ReceiptItem[] = parsedItems.map(({ needsVerification, ...item }) => ({...item}));
+          const verificationContext: VerificationContext = {
+            rawText: responseText,
+            allItems: publicItems,
+          };
+          
           const result = await options.verifyCallback(item.name, verificationContext);
           if (result && result.verifiedName) {
             // 更新商品名称
@@ -100,8 +101,10 @@ export async function extractReceiptItems(
     }
   }
 
-  // 4. 转换为公开类型：移除内部字段 needsVerification
-  const finalItems: ReceiptItem[] = parsedItems.map(({ needsVerification, ...item }) => item);
+  // 4. 转换为公开类型：移除内部字段 needsVerification，创建完全独立的副本
+  const finalItems: ReceiptItem[] = parsedItems.map(({ needsVerification, ...item }) => ({
+    ...item  // 创建新对象，确保外部无法修改内部数据
+  }));
 
   return {
     items: finalItems,
