@@ -9,10 +9,12 @@
  */
 export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有商品信息和总金额。
 
-输出格式为包含两个字段的 JSON 对象：
+输出格式为 JSON 对象，包含以下字段：
 {
-  "items": [...],  // 商品数组
-  "total": 123.45  // 小票总金额
+  "items": [...],       // 商品数组（必填）
+  "subtotal": 100.00,   // 小计金额（可选 - 如果小票上有 SUBTOTAL 行就提取）
+  "totalTax": 5.00,     // 税费总额（可选 - 如果小票上有 TAX 行就提取）
+  "total": 105.00       // 小票总金额（必填）
 }
 
 每个商品包含：
@@ -28,6 +30,7 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
 - **如果商品名称后面没有 "H" 标记**，则 hasTax = false
 - **重要**：提取商品名称时，请去掉末尾的 "H" 标记，只保留商品名称本身
 - 如果小票上有明确的税费金额，填写到 taxAmount 字段
+- 请你仔细检查，确保 "H" 标记的数量是否和含税商品数量一致
 
 关于 needsVerification 的判断规则：
 **重要原则：宁可多验证，不要猜测。当不确定时，优先设为 true。**
@@ -76,10 +79,21 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
 - 商品B的押金（如果有）
 - ...
 
-**关于 total（总金额）的提取规则：**
-- 从小票底部找到 "TOTAL"、"总计"、"合计" 等标记
-- 提取对应的金额数字
-- 这是小票的最终应付金额
+**关于金额汇总字段的提取规则：**
+1. **subtotal（小计）** - 可选：
+   - 如果小票上有 "SUBTOTAL"、"小计"、"商品合计" 等标记，提取对应金额
+   - 通常是商品总额（不含税）
+   - 如果小票上没有，不填写该字段
+
+2. **totalTax（总税额）** - 可选：
+   - 如果小票上有 "TAX"、"税费"、"GST"、"PST" 等标记，提取对应金额
+   - 如果有多行税费（如 GST + PST），提取它们的总和
+   - 如果小票上没有，不填写该字段
+
+3. **total（总金额）** - 必填：
+   - 从小票底部找到 "TOTAL"、"总计"、"合计" 等标记
+   - 提取对应的金额数字
+   - 这是小票的最终应付金额
 
 **输出格式要求（极其重要）**：
 1. 只返回 JSON 对象，不要任何其他文字、解释或markdown标记
@@ -91,8 +105,12 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
 假设小票上显示：
 - "KS ORG MLK 1L" (无 H) → 不含税，¥12.50
 - "ORG BRD H" → 含税，¥8.00（税¥0.80）
+- "Deposit VL" → 押金，¥0.50 x 2
+- "TPD" → 折扣，¥0.50
 - "CEMΟΙ 6Χ H" → 含税，¥15.00
 - "KS Apple" (无 H) → 不含税，¥4.50 x 3
+- SUBTOTAL: ¥36.50
+- TAX: ¥0.80
 - TOTAL: ¥37.30
 
 则输出为：
@@ -105,6 +123,8 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
     {"name": "CEMΟΙ 6Χ", "price": 15.0, "quantity": 1, "needsVerification": true, "hasTax": true},
     {"name": "KS Apple", "price": 4.5, "quantity": 3, "needsVerification": true, "hasTax": false}
   ],
+  "subtotal": 36.50,
+  "totalTax": 0.80,
   "total": 37.30
 }
 
@@ -112,4 +132,5 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
 1. 商品名称中已去掉 "H" 标记，但根据原小票上的 "H" 标记设置了正确的 hasTax 值
 2. TPD 折扣项的 price 是**正数 0.5**（不是 -0.5），系统会自动处理为负值
 3. 所有附加费用（押金、折扣）的 price 都必须是正数
-4. total 是小票上显示的最终应付金额`;
+4. subtotal 和 totalTax 是可选的，只有小票上明确显示时才提取
+5. total 是小票上显示的最终应付金额（必填）`;

@@ -14,7 +14,7 @@ export interface ReceiptItem {
   taxAmount?: number;
   /** 押金金额（可选，正数表示收押金，负数表示退押金） */
   deposit?: number;
-  /** 折扣金额（可选，负数表示折扣） */
+  /** 折扣金额（可选，正数表示折扣优惠，例如 2.0 表示减免 2 元） */
   discount?: number;
 }
 
@@ -25,6 +25,10 @@ export interface ReceiptItem {
 export interface ReceiptData {
   /** 商品列表 */
   items: ReceiptItem[];
+  /** 小计金额（可选 - 如果小票上有 SUBTOTAL 行） */
+  subtotal?: number;
+  /** 税费总额（可选 - 如果小票上有 TAX 行） */
+  totalTax?: number;
   /** 小票总金额 */
   total: number;
 }

@@ -58,10 +58,12 @@ console.log(receipt);
 //       hasTax: true,
 //       taxAmount: 0.35,
 //       deposit: 0.5,      // 押金已自动合并
-//       discount: -0.5     // 折扣已自动合并
+//       discount: 0.5      // 折扣已自动合并（存储为正数）
 //     },
 //     ...
 //   ],
+//   subtotal: 94.5,  // 如果小票上有显示
+//   totalTax: 1.25,  // 如果小票上有显示
 //   total: 95.75
 // }
 ```
@@ -73,6 +75,8 @@ console.log(receipt);
 ```typescript
 interface ReceiptData {
   items: ReceiptItem[];          // 商品列表
+  subtotal?: number;             // 小计金额（可选 - 如果小票上有 SUBTOTAL 行）
+  totalTax?: number;             // 税费总额（可选 - 如果小票上有 TAX 行）
   total: number;                 // 小票总金额
 }
 ```
@@ -89,7 +93,7 @@ interface ReceiptItem {
   hasTax: boolean;               // 是否含税
   taxAmount?: number;            // 税额（可选）
   deposit?: number;              // 押金（可选，自动合并）
-  discount?: number;             // 折扣（可选，自动合并）
+  discount?: number;             // 折扣（可选，自动合并，存储为正数）
 }
 ```
 
@@ -98,7 +102,7 @@ interface ReceiptItem {
 库会自动识别并合并押金（Deposit）和折扣（TPD）到对应的商品中，而不是作为独立的商品项返回：
 
 - **押金（deposit）**：如 "Deposit VL"，会被合并到对应的瓶装商品中
-- **折扣（discount）**：如 "TPD"，会被合并到对应的商品中（通常为负数）
+- **折扣（discount）**：如 "TPD"，会被合并到对应的商品中（存储为正数，如 0.5 表示减免 0.5 元）
 
 这意味着您不需要手动处理这些附加费用，它们会自动关联到正确的商品上。
 
@@ -183,7 +187,7 @@ type VerificationCallback = (
 ) => Promise<{ verifiedName: string } | null>;
 ```
 
-### 访问总金额
+### 访问小票数据
 
 ```typescript
 const receipt = await extractReceiptItems(imageBuffer);
@@ -193,7 +197,13 @@ receipt.items.forEach(item => {
   console.log(`${item.name}: ¥${item.price} × ${item.quantity}`);
 });
 
-// 访问总金额
+// 访问金额汇总
+if (receipt.subtotal) {
+  console.log(`小计: ¥${receipt.subtotal}`);
+}
+if (receipt.totalTax) {
+  console.log(`税费: ¥${receipt.totalTax}`);
+}
 console.log(`总计: ¥${receipt.total}`);
 ```
 

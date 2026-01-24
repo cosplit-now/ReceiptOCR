@@ -95,8 +95,8 @@ function mergeAttachments(items: RawReceiptItem[]): RawReceiptItem[] {
           // 押金：累加（考虑数量）
           currentItem.deposit = (currentItem.deposit || 0) + (item.price * item.quantity);
         } else if (item.attachmentType === 'discount') {
-          // 折扣：LLM 输出正数，我们转为负数累加
-          currentItem.discount = (currentItem.discount || 0) - item.price;
+          // 折扣：LLM 输出正数，直接累加为正数（前端更容易处理）
+          currentItem.discount = (currentItem.discount || 0) + item.price;
         }
       }
       // 如果没有前置商品，跳过这个孤立的附加费用
@@ -120,6 +120,8 @@ function mergeAttachments(items: RawReceiptItem[]): RawReceiptItem[] {
  */
 export interface ParsedReceiptData {
   items: InternalReceiptItem[];
+  subtotal?: number;
+  totalTax?: number;
   total: number;
 }
 
@@ -148,10 +150,20 @@ export function parseResponse(responseText: string): ParsedReceiptData {
       throw new Error('Response.items is not an array');
     }
 
-    // 提取 total
+    // 提取 total（必填）
     if (typeof parsed.total !== 'number' || parsed.total < 0) {
       throw new Error('Response.total is missing or invalid');
     }
+
+    // 提取 subtotal（可选）
+    const subtotal = typeof parsed.subtotal === 'number' && parsed.subtotal >= 0 
+      ? parsed.subtotal 
+      : undefined;
+
+    // 提取 totalTax（可选）
+    const totalTax = typeof parsed.totalTax === 'number' && parsed.totalTax >= 0 
+      ? parsed.totalTax 
+      : undefined;
 
     // 验证并规范化每个商品
     const items = parsed.items.map((raw: any, index: number) => {
@@ -168,6 +180,8 @@ export function parseResponse(responseText: string): ParsedReceiptData {
 
     return {
       items: mergedItems,
+      ...(subtotal !== undefined && { subtotal }),
+      ...(totalTax !== undefined && { totalTax }),
       total: parsed.total,
     };
   } catch (error) {

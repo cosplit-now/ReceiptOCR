@@ -13,7 +13,7 @@
       "hasTax": true,
       "taxAmount": 0.35,
       "deposit": 1.0,
-      "discount": -0.5
+      "discount": 0.5
     },
     {
       "name": "有机面包",
@@ -35,8 +35,10 @@
       "price": 4.2,
       "quantity": 1,
       "hasTax": false,
-      "discount": -0.8
+      "discount": 0.8
     }
   ],
+  "subtotal": 93.6,
+  "totalTax": 4.1,
   "total": 95.75
 }

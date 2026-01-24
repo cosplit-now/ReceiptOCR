@@ -53,7 +53,15 @@ async function main() {
   console.log(`   税费总额: ¥${totalTax.toFixed(2)}`);
   console.log(`   押金总额: ¥${totalDeposit.toFixed(2)}`);
   console.log(`   折扣总额: ¥${totalDiscount.toFixed(2)}`);
-  console.log(`   计算合计: ¥${(totalAmount + totalTax + totalDeposit + totalDiscount).toFixed(2)}`);
+  console.log(`   计算合计: ¥${(totalAmount + totalTax + totalDeposit - totalDiscount).toFixed(2)}`);
+  
+  // 显示小票上的金额汇总
+  if (receipt.subtotal !== undefined) {
+    console.log(`   小票小计: ¥${receipt.subtotal.toFixed(2)}`);
+  }
+  if (receipt.totalTax !== undefined) {
+    console.log(`   小票税费: ¥${receipt.totalTax.toFixed(2)}`);
+  }
   console.log(`   小票总额: ¥${receipt.total.toFixed(2)}`);
 }
 

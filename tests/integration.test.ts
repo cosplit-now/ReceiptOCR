@@ -42,9 +42,9 @@ describe('集成测试：真实图片识别（优化版 - 单次 API 调用）',
     imageBuffer = fs.readFileSync(imagePath);
     console.log(`\n✓ 已加载测试图片: ${imagePath} (${imageBuffer.length} bytes)`);
 
-    // 🎯 只调用一次 API - 获取基础识别结果
-    console.log('\n📸 开始识别小票图片（这是唯一的 API 调用）...');
-    sharedReceipt = await extractReceiptItems(imageBuffer);
+    // 🎯 只调用一次 API - 获取基础识别结果（禁用自动验证以加快速度）
+    console.log('\n📸 开始识别小票图片（基础提取，不含自动验证）...');
+    sharedReceipt = await extractReceiptItems(imageBuffer, { autoVerify: false });
     console.log(`✓ 识别完成，提取到 ${sharedReceipt.items.length} 个商品，总金额: ¥${sharedReceipt.total}`);
     
     // 📊 显示识别结果的JSON
@@ -87,7 +87,10 @@ describe('集成测试：真实图片识别（优化版 - 单次 API 调用）',
         : null;
     };
     
-    receiptWithVerification = await extractReceiptItems(imageBuffer, { verifyCallback });
+    receiptWithVerification = await extractReceiptItems(imageBuffer, { 
+      verifyCallback,
+      autoVerify: false  // 禁用自动验证，只测试 verifyCallback
+    });
     console.log(`✓ 验证完成`);
     
     // 📊 显示验证后的JSON

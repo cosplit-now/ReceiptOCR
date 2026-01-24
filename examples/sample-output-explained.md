@@ -5,35 +5,51 @@
 ## 完整 JSON 输出
 
 ```json
-[
-  {
-    "name": "有机牛奶 1L",
-    "price": 12.5,
-    "quantity": 1,
-    "hasTax": false
-  },
-  {
-    "name": "可口可乐瓶装 330ml",
-    "price": 3.5,
-    "quantity": 2,
-    "hasTax": true,
-    "taxAmount": 0.35,
-    "deposit": 1.0,      // ✨ 押金已合并（原本是独立的 "Deposit VL" 项）
-    "discount": -0.5     // ✨ 折扣已合并（原本是独立的 "TPD" 项）
-  },
-  {
-    "name": "有机面包",
-    "price": 8.0,
-    "quantity": 1,
-    "hasTax": true,
-    "taxAmount": 0.8
-  }
-]
+{
+  "items": [
+    {
+      "name": "有机牛奶 1L",
+      "price": 12.5,
+      "quantity": 1,
+      "hasTax": false
+    },
+    {
+      "name": "可口可乐瓶装 330ml",
+      "price": 3.5,
+      "quantity": 2,
+      "hasTax": true,
+      "taxAmount": 0.35,
+      "deposit": 1.0,      // ✨ 押金已合并（原本是独立的 "Deposit VL" 项）
+      "discount": 0.5      // ✨ 折扣已合并（原本是独立的 "TPD" 项），存储为正数
+    },
+    {
+      "name": "有机面包",
+      "price": 8.0,
+      "quantity": 1,
+      "hasTax": true,
+      "taxAmount": 0.8
+    }
+  ],
+  "subtotal": 20.3,      // ✨ 小计金额（如果小票上有显示）
+  "totalTax": 1.15,      // ✨ 税费总额（如果小票上有显示）
+  "total": 21.45
+}
 ```
 
 ## 字段说明
 
-### 必有字段（4个）
+### ReceiptData（顶层对象）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `items` | `ReceiptItem[]` | 商品列表（必填） |
+| `subtotal` | `number?` | 小计金额（可选 - 如果小票上有 SUBTOTAL 行） |
+| `totalTax` | `number?` | 税费总额（可选 - 如果小票上有 TAX 行） |
+| `total` | `number` | 小票总金额（必填） |
+
+### ReceiptItem（商品对象）
+
+#### 必有字段（4个）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -42,13 +58,13 @@
 | `quantity` | `number` | 商品数量（默认 1） |
 | `hasTax` | `boolean` | 是否含税 |
 
-### 可选字段（3个）
+#### 可选字段（3个）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `taxAmount` | `number?` | 税额（可选） |
 | `deposit` | `number?` | 押金金额（自动合并，通常为正数） |
-| `discount` | `number?` | 折扣金额（自动合并，通常为负数） |
+| `discount` | `number?` | 折扣金额（自动合并，存储为正数，如 0.5 表示减免 0.5 元） |
 
 ## 附加费用合并逻辑
 
@@ -57,7 +73,7 @@
 ```
 1. 可口可乐瓶装 330ml    ¥3.50 x 2
 2. Deposit VL            ¥0.50 x 2
-3. TPD                   ¥-0.50 x 1
+3. TPD (折扣)            ¥0.50 x 1
 ```
 
 ### 处理前（LLM 返回的原始数据）
@@ -80,7 +96,7 @@
   },
   {
     "name": "TPD",
-    "price": -0.5,
+    "price": 0.5,
     "quantity": 1,
     "isAttachment": true,
     "attachmentType": "discount",
@@ -100,7 +116,7 @@
     "hasTax": true,
     "taxAmount": 0.35,
     "deposit": 1.0,      // 0.5 * 2 = 1.0
-    "discount": -0.5     // -0.5
+    "discount": 0.5      // 0.5 (存储为正数)
   }
 ]
 ```
@@ -116,7 +132,7 @@ function calculateItemTotal(item: ReceiptItem): number {
   }
   
   if (item.discount) {
-    total += item.discount; // discount 通常是负数
+    total -= item.discount; // discount 是正数，需要减去
   }
   
   return total;
@@ -128,16 +144,23 @@ const item = {
   price: 3.5,
   quantity: 2,
   deposit: 1.0,
-  discount: -0.5
+  discount: 0.5
 };
 
 const total = calculateItemTotal(item);
-// total = (3.5 * 2) + 1.0 + (-0.5) = 7.5
+// total = (3.5 * 2) + 1.0 - 0.5 = 7.5
 ```
 
 ## TypeScript 类型定义
 
 ```typescript
+interface ReceiptData {
+  items: ReceiptItem[];
+  subtotal?: number;     // ✨ 小计（从小票提取）
+  totalTax?: number;     // ✨ 总税额（从小票提取）
+  total: number;
+}
+
 interface ReceiptItem {
   name: string;
   price: number;

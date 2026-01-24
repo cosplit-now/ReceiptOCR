@@ -49,7 +49,7 @@ export async function extractReceiptItems(
   const responseText = await callGemini(image, EXTRACTION_PROMPT);
 
   // 2. 解析响应
-  const { items: parsedItems, total } = parseResponse(responseText);
+  const { items: parsedItems, subtotal, totalTax, total } = parseResponse(responseText);
 
   // 3. 处理需要验证的商品
   const itemsNeedingVerification = parsedItems.filter(item => item.needsVerification);
@@ -112,6 +112,8 @@ export async function extractReceiptItems(
 
   return {
     items: finalItems,
+    ...(subtotal !== undefined && { subtotal }),
+    ...(totalTax !== undefined && { totalTax }),
     total,
   };
 }
