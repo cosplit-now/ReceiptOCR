@@ -27,6 +27,12 @@ export interface ReceiptData {
   items: ReceiptItem[];
   /** 小票总金额 */
   total: number;
+  /** 小计金额（税前金额，如果小票上有显示） */
+  subtotal?: number;
+  /** 总税额（如果小票上有显示） */
+  tax?: number;
+  /** 整单折扣（应用到整个账单的折扣，负数表示折扣，如果有） */
+  totalDiscount?: number;
 }
 
 /**

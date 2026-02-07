@@ -86,6 +86,9 @@ console.log(receipt);
 interface ReceiptData {
   items: ReceiptItem[];          // 商品列表
   total: number;                 // 小票总金额
+  subtotal?: number;             // 小计（税前金额，如果小票上有）
+  tax?: number;                  // 总税额（如果小票上有）
+  totalDiscount?: number;        // 整单折扣（应用到整个账单的折扣，负数）
 }
 ```
 
@@ -113,6 +116,29 @@ interface ReceiptItem {
 - **折扣（discount）**：如 "TPD"，会被合并到对应的商品中（通常为负数）
 
 这意味着您不需要手动处理这些附加费用，它们会自动关联到正确的商品上。
+
+### 可选的金额字段
+
+除了必需的 `items` 和 `total` 字段，`ReceiptData` 还包含以下可选字段：
+
+- **`subtotal`（小计）**：如果小票上显示了税前总额，会自动提取此字段
+- **`tax`（总税额）**：如果小票上显示了总税额（如 "TAX: $0.80"），会自动提取此字段
+- **`totalDiscount`（整单折扣）**：如果有应用到整个账单的折扣（如会员折扣、优惠券），会提取为负数
+
+**重要区分**：
+- `ReceiptItem.discount` - 单个商品的折扣（如商品促销）
+- `ReceiptData.totalDiscount` - 整单折扣（如会员优惠、满减、优惠券）
+
+示例：
+```typescript
+{
+  items: [...],
+  total: 47.30,
+  subtotal: 48.50,      // 税前总额
+  tax: 0.80,            // 总税额
+  totalDiscount: -2.00  // 会员折扣
+}
+```
 
 ## 提取模式
 
@@ -329,8 +355,11 @@ interface ExtractOptions {
 
 ```typescript
 interface ReceiptData {
-  items: ReceiptItem[];  // 商品列表
-  total: number;         // 总金额
+  items: ReceiptItem[];       // 商品列表
+  total: number;              // 总金额（必需）
+  subtotal?: number;          // 小计/税前金额（可选）
+  tax?: number;               // 总税额（可选）
+  totalDiscount?: number;     // 整单折扣（可选，负数）
 }
 
 interface ReceiptItem {
@@ -338,9 +367,9 @@ interface ReceiptItem {
   price: number;         // 单价
   quantity: number;      // 数量
   hasTax: boolean;       // 是否含税
-  taxAmount?: number;    // 税额（可选）
+  taxAmount?: number;    // 该商品的税额（可选）
   deposit?: number;      // 押金（可选）
-  discount?: number;     // 折扣（可选）
+  discount?: number;     // 该商品的折扣（可选，负数）
 }
 ```
 

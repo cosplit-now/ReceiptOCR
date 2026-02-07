@@ -9,10 +9,13 @@
  */
 export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有商品信息和总金额。
 
-输出格式为包含两个字段的 JSON 对象：
+输出格式为 JSON 对象，包含以下字段：
 {
-  "items": [...],  // 商品数组
-  "total": 123.45  // 小票总金额
+  "items": [...],           // 商品数组（必需）
+  "total": 123.45,          // 小票总金额（必需）
+  "subtotal": 120.00,       // 小计/税前金额（可选，如果小票上有）
+  "tax": 3.45,              // 总税额（可选，如果小票上有）
+  "totalDiscount": -5.00    // 整单折扣（可选，如果有应用到整个账单的折扣）
 }
 
 每个商品包含：
@@ -57,6 +60,8 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
 - "富士苹果" → needsVerification: false（完整且明确）
 
 **重要：附加费用处理规则**
+
+**商品级别的折扣和押金：**
 对于押金（Deposit、deposit、押金等）和折扣（TPD、discount、折扣等）这类附加费用：
 - 添加额外字段 isAttachment: true
 - 添加 attachmentType: "deposit" 或 "discount"
@@ -68,6 +73,15 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
 - 系统会自动将附加费用合并到它前面的商品中
 - 这些附加费用不会作为独立商品返回
 
+**整单折扣（totalDiscount）：**
+某些折扣是应用到**整个账单**的，而不是特定商品：
+- 如果小票上有整单折扣（如 "Total Discount"、"整单优惠"、"会员折扣"等），提取到 totalDiscount 字段
+- totalDiscount 必须是**负数**（如 -5.00 表示减免 5 元）
+- **区分规则**：
+  - 如果折扣紧跟在某个商品后面 → 是商品级别的折扣，作为 attachment 处理
+  - 如果折扣在小票底部、接近总计行、或明确标注为"整单" → 是整单折扣，提取到 totalDiscount
+- 常见的整单折扣关键词："Total Discount"、"整单折扣"、"会员优惠"、"满减"、"优惠券"、"Coupon"
+
 归属规则（按照这个顺序排列）：
 - 商品A
 - 商品A的押金（如果有）
@@ -76,10 +90,29 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
 - 商品B的押金（如果有）
 - ...
 
-**关于 total（总金额）的提取规则：**
-- 从小票底部找到 "TOTAL"、"总计"、"合计" 等标记
-- 提取对应的金额数字
-- 这是小票的最终应付金额
+**关于金额字段的提取规则：**
+
+1. **total（总金额，必需）**：
+   - 从小票底部找到 "TOTAL"、"总计"、"合计"、"应付" 等标记
+   - 提取对应的金额数字
+   - 这是小票的最终应付金额
+   - **必须提供此字段**
+
+2. **subtotal（小计，可选）**：
+   - 如果小票上有 "SUBTOTAL"、"小计"、"税前合计" 等标记，提取此金额
+   - 通常是所有商品价格的总和（税前）
+   - **如果小票上没有显示，不要计算，直接不提供此字段**
+
+3. **tax（总税额，可选）**：
+   - 如果小票上有单独的税额总计行（如 "TAX"、"GST"、"税额合计" 等），提取此金额
+   - 这是所有商品税额的总和
+   - **如果小票上没有显示，不要计算，直接不提供此字段**
+   - 注意：这与单个商品的 taxAmount 不同，tax 是整张小票的税额总计
+
+4. **totalDiscount（整单折扣，可选）**：
+   - 如果有应用到整个账单的折扣，提取此金额
+   - **必须是负数**（如 -5.00）
+   - 详见上面的"整单折扣"规则
 
 **输出格式要求（极其重要）**：
 1. 只返回 JSON 对象，不要任何其他文字、解释或markdown标记
@@ -93,7 +126,10 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
 - "ORG BRD H" → 含税，¥8.00（税¥0.80）
 - "CEMΟΙ 6Χ H" → 含税，¥15.00
 - "KS Apple" (无 H) → 不含税，¥4.50 x 3
-- TOTAL: ¥37.30
+- SUBTOTAL: ¥48.50
+- TAX: ¥0.80
+- Member Discount: -¥2.00
+- TOTAL: ¥47.30
 
 则输出为：
 {
@@ -105,11 +141,16 @@ export const EXTRACTION_PROMPT = `分析这张购物小票图片，提取所有�
     {"name": "CEMΟΙ 6Χ", "price": 15.0, "quantity": 1, "needsVerification": true, "hasTax": true},
     {"name": "KS Apple", "price": 4.5, "quantity": 3, "needsVerification": true, "hasTax": false}
   ],
-  "total": 37.30
+  "total": 47.30,
+  "subtotal": 48.50,
+  "tax": 0.80,
+  "totalDiscount": -2.00
 }
 
 注意：
 1. 商品名称中已去掉 "H" 标记，但根据原小票上的 "H" 标记设置了正确的 hasTax 值
-2. TPD 折扣项的 price 是**正数 0.5**（不是 -0.5），系统会自动处理为负值
-3. 所有附加费用（押金、折扣）的 price 都必须是正数
-4. total 是小票上显示的最终应付金额`;
+2. TPD 折扣项的 price 是**正数 0.5**（不是 -0.5），这是商品级别的折扣
+3. Member Discount 是整单折扣，提取到 totalDiscount 字段，必须是**负数 -2.00**
+4. 所有附加费用（押金、商品折扣）的 price 都必须是正数
+5. subtotal、tax、totalDiscount 只有在小票上明确显示时才提供，不要计算
+6. total 是小票上显示的最终应付金额（必需字段）`;

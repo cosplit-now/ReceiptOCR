@@ -121,6 +121,9 @@ function mergeAttachments(items: RawReceiptItem[]): RawReceiptItem[] {
 export interface ParsedReceiptData {
   items: InternalReceiptItem[];
   total: number;
+  subtotal?: number;
+  tax?: number;
+  totalDiscount?: number;
 }
 
 /**
@@ -166,10 +169,24 @@ export function parseResponse(responseText: string): ParsedReceiptData {
     // 合并附加费用到对应的商品
     const mergedItems = mergeAttachments(items);
 
-    return {
+    // 构建返回结果（包含可选字段）
+    const result: ParsedReceiptData = {
       items: mergedItems,
       total: parsed.total,
     };
+
+    // 添加可选字段（只有在有效时才添加）
+    if (typeof parsed.subtotal === 'number' && parsed.subtotal >= 0) {
+      result.subtotal = parsed.subtotal;
+    }
+    if (typeof parsed.tax === 'number' && parsed.tax >= 0) {
+      result.tax = parsed.tax;
+    }
+    if (typeof parsed.totalDiscount === 'number') {
+      result.totalDiscount = parsed.totalDiscount;
+    }
+
+    return result;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to parse LLM response: ${error.message}\n\nResponse:\n${responseText}`);

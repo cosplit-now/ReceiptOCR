@@ -170,21 +170,37 @@ ReceiptOCR/
 
 ## 核心概念
 
-### 1. 商品数据结构
+### 1. 返回数据结构
 
-每个提取的商品包含以下字段：
+函数返回 `ReceiptData` 对象：
 
 ```typescript
-{
+interface ReceiptData {
+  items: ReceiptItem[];       // 商品列表
+  total: number;              // 总金额（必需）
+  subtotal?: number;          // 小计/税前金额（可选）
+  tax?: number;               // 总税额（可选）
+  totalDiscount?: number;     // 整单折扣（可选，负数）
+}
+```
+
+每个商品包含以下字段：
+
+```typescript
+interface ReceiptItem {
   name: string;                  // 商品名称
   price: number;                 // 单价
   quantity: number;              // 数量
   hasTax: boolean;               // 是否含税
-  taxAmount?: number;            // 税额（可选）
+  taxAmount?: number;            // 该商品的税额（可选）
   deposit?: number;              // 押金（可选，自动合并）
-  discount?: number;             // 折扣（可选，自动合并）
+  discount?: number;             // 该商品的折扣（可选，负数）
 }
 ```
+
+**可选字段说明**：
+- `subtotal`、`tax`、`totalDiscount` 只有在小票上明确显示时才会出现
+- `totalDiscount` 是整单折扣（如会员优惠、优惠券），与商品级别的 `discount` 不同
 
 ### 2. 内部验证机制
 

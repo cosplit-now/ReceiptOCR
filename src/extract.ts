@@ -89,7 +89,7 @@ export async function extractReceiptItems(
   }
 
   // 2. 解析响应（两种模式共用）
-  const { items: parsedItems, total } = parseResponse(responseText);
+  const { items: parsedItems, total, subtotal, tax, totalDiscount } = parseResponse(responseText);
 
   // 3. 处理需要验证的商品
   const itemsNeedingVerification = parsedItems.filter(item => item.needsVerification);
@@ -150,8 +150,22 @@ export async function extractReceiptItems(
     ...item  // 创建新对象，确保外部无法修改内部数据
   }));
 
-  return {
+  // 5. 构建返回结果（包含可选字段）
+  const result: ReceiptData = {
     items: finalItems,
     total,
   };
+
+  // 添加可选字段（只有在存在时才添加）
+  if (subtotal !== undefined) {
+    result.subtotal = subtotal;
+  }
+  if (tax !== undefined) {
+    result.tax = tax;
+  }
+  if (totalDiscount !== undefined) {
+    result.totalDiscount = totalDiscount;
+  }
+
+  return result;
 }
