@@ -1,7 +1,10 @@
 import type { ImageInput, ExtractOptions, ReceiptItem, ReceiptData, VerificationContext } from './types.js';
 import { callGemini } from './adapters/gemini.js';
+import { extractTextWithPPOcr } from './adapters/ppocr.js';
+import { parseTextWithGemini } from './adapters/gemini-text.js';
 import { batchVerifyItems } from './adapters/verifier.js';
 import { EXTRACTION_PROMPT } from './utils/prompt.js';
+import { TEXT_PARSING_PROMPT } from './utils/text-prompt.js';
 import { parseResponse } from './processors/parser.js';
 
 /**
@@ -39,16 +42,53 @@ import { parseResponse } from './processors/parser.js';
  *     return result ? { verifiedName: result.name } : null;
  *   }
  * });
+ * 
+ * // 使用 OCR + LLM 模式（成本优化）
+ * const receipt = await extractReceiptItems(imageBuffer, {
+ *   mode: 'ocr-llm',
+ *   ocrConfig: {
+ *     apiUrl: 'https://your-ppocr-api.com/ocr',
+ *     token: process.env.PPOCR_TOKEN,
+ *     fileType: 1,
+ *   }
+ * });
  * ```
  */
 export async function extractReceiptItems(
   image: ImageInput,
   options?: ExtractOptions
 ): Promise<ReceiptData> {
-  // 1. 调用 Gemini API
-  const responseText = await callGemini(image, EXTRACTION_PROMPT);
+  // 确定提取模式（默认为 multimodal）
+  const mode = options?.mode || 'multimodal';
+  let responseText: string;
+  
+  // 根据模式选择不同的处理流程
+  if (mode === 'ocr-llm') {
+    // 新流程：OCR + LLM
+    if (!options?.ocrConfig) {
+      throw new Error('ocrConfig is required when mode is "ocr-llm"');
+    }
+    
+    // 1a. 使用 ppocr 提取文本
+    const { text: ocrText, warnings } = await extractTextWithPPOcr(
+      image, 
+      options.ocrConfig
+    );
+    
+    // 如果有警告，输出到 console
+    if (warnings.length > 0) {
+      console.warn('OCR confidence warnings:', warnings);
+    }
+    
+    // 1b. 使用 Gemini 解析文本
+    responseText = await parseTextWithGemini(ocrText, TEXT_PARSING_PROMPT);
+  } else {
+    // 原流程：Gemini 多模态
+    // 1. 直接调用 Gemini 处理图片
+    responseText = await callGemini(image, EXTRACTION_PROMPT);
+  }
 
-  // 2. 解析响应
+  // 2. 解析响应（两种模式共用）
   const { items: parsedItems, total } = parseResponse(responseText);
 
   // 3. 处理需要验证的商品

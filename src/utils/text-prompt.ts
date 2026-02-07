@@ -1,0 +1,133 @@
+/**
+ * 基于 OCR 文本的小票解析 Prompt 模板
+ * 
+ * 该模板要求 LLM：
+ * 1. 解析从 OCR 提取的文本
+ * 2. 理解双空格分隔的语义
+ * 3. 利用文本顺序判断商品和附加费用的关系
+ * 4. 返回结构化的 JSON 数组
+ */
+export const TEXT_PARSING_PROMPT = `你将收到从购物小票图片中提取的 OCR 文本。请分析这些文本，提取商品信息和总金额。
+
+**文本格式说明：**
+- 每行代表小票上的一行
+- 同一行内的不同字段用双空格（"  "）分隔
+- 文本保持原始上下顺序
+- 例如："KS ORG  MLK 1L  12.50" 表示商品名、规格和价格在同一行
+
+输出格式为包含两个字段的 JSON 对象：
+{
+  "items": [...],  // 商品数组
+  "total": 123.45  // 小票总金额
+}
+
+每个商品包含：
+- name: 商品名称（字符串）
+- price: 单价（数字）
+- quantity: 数量（数字，默认 1）
+- needsVerification: 是否需要验证（布尔值）
+- hasTax: 是否含税（布尔值）
+- taxAmount: 税额（数字，可选）
+
+**关于 hasTax 的判断规则（Costco 小票）：**
+- **如果商品名称后面有 "H" 标记**（如 "ORG BRD  H  8.00"），则 hasTax = true
+- **如果商品名称后面没有 "H" 标记**，则 hasTax = false
+- **重要**：提取商品名称时，请去掉末尾的 "H" 标记，只保留商品名称本身
+- 如果文本中有明确的税费金额（如单独一行 "Tax  0.80"），填写到 taxAmount 字段
+
+关于 needsVerification 的判断规则：
+**重要原则：宁可多验证，不要猜测。当不确定时，优先设为 true。**
+
+必须设为 true 的情况：
+- 商品名称是缩写（如 "ORG MLK"、"VEG"、"FRZ"）
+- 商品名称不完整或被截断（如 "CHOCO..."、"有机..."）
+- 包含数字或字母组合但含义不明确（如 "CEMΟΙ 6Χ"、"KS 12X"）
+- 商品名称模糊或可能有多种解释
+- 商品名称包含品牌缩写或代码
+- 只有品类没有具体品名（如 "面包"、"饮料"）
+- 商品名称中混杂了数字但不清楚具体规格（如 "牛奶 2"）
+- 任何你不能100%确定完整含义的名称
+
+可以设为 false 的情况（必须同时满足以下所有条件）：
+- 商品名称完整、清晰、无缩写
+- 包含完整的品牌和规格信息（如 "可口可乐瓶装 330ml"）
+- 你能100%确定这个名称的准确含义
+- 普通消费者看到这个名称能立即理解是什么商品
+
+示例：
+- "ORG MLK" → needsVerification: true（缩写）
+- "CEMΟΙ 6Χ" → needsVerification: true（包含不明确的字符）
+- "面包" → needsVerification: true（只有品类，没有具体信息）
+- "KS Milk" → needsVerification: true（品牌缩写）
+- "有机牛奶 Kirkland Signature 1L" → needsVerification: false（完整清晰）
+- "富士苹果" → needsVerification: false（完整且明确）
+
+**重要：附加费用处理规则**
+对于押金（Deposit、deposit、押金等）和折扣（TPD、discount、折扣等）这类附加费用：
+- 添加额外字段 isAttachment: true
+- 添加 attachmentType: "deposit" 或 "discount"
+- **价格格式要求**：
+  - 押金的 price 字段必须是**正数**（如 0.5）
+  - 折扣的 price 字段也必须是**正数**（如 0.5，而不是 -0.5）
+  - 系统会自动将折扣金额处理为负值，你只需输出折扣的绝对值
+- **重要**：将附加费用紧跟在它所属的商品后面排列
+- 系统会自动将附加费用合并到它前面的商品中
+- 这些附加费用不会作为独立商品返回
+
+**归属判断规则**：
+利用文本的上下顺序，附加费用通常紧跟在对应商品后面。
+例如：
+ORG BRD  H  8.00
+Deposit VL  0.5  2
+TPD  0.5
+这里 Deposit VL 和 TPD 都属于 ORG BRD 这个商品。
+
+归属顺序（按照这个顺序排列）：
+- 商品A
+- 商品A的押金（如果有）
+- 商品A的折扣（如果有）
+- 商品B
+- 商品B的押金（如果有）
+- ...
+
+**关于 total（总金额）的提取规则：**
+- 从文本中找到 "TOTAL"、"总计"、"合计" 等标记
+- 提取对应的金额数字
+- 这是小票的最终应付金额
+
+**输出格式要求（极其重要）**：
+1. 只返回 JSON 对象，不要任何其他文字、解释或markdown标记
+2. 所有 price 字段必须是**正数**，包括折扣项
+3. 严格遵循上述字段定义，不要添加额外字段
+4. 确保 JSON 格式正确，可以被直接解析
+
+示例输出：
+假设 OCR 文本为：
+KS ORG  MLK 1L  12.50
+ORG BRD  H  8.00
+Tax  0.80
+Deposit VL  0.50  2
+TPD  0.50
+CEMOI 6X  H  15.00
+KS Apple  4.50  3
+TOTAL  37.30
+
+则输出为：
+{
+  "items": [
+    {"name": "KS ORG MLK 1L", "price": 12.5, "quantity": 1, "needsVerification": true, "hasTax": false},
+    {"name": "ORG BRD", "price": 8.0, "quantity": 1, "needsVerification": true, "hasTax": true, "taxAmount": 0.8},
+    {"name": "Deposit VL", "price": 0.5, "quantity": 2, "needsVerification": false, "hasTax": false, "isAttachment": true, "attachmentType": "deposit"},
+    {"name": "TPD", "price": 0.5, "quantity": 1, "needsVerification": false, "hasTax": false, "isAttachment": true, "attachmentType": "discount"},
+    {"name": "CEMOI 6X", "price": 15.0, "quantity": 1, "needsVerification": true, "hasTax": true},
+    {"name": "KS Apple", "price": 4.5, "quantity": 3, "needsVerification": true, "hasTax": false}
+  ],
+  "total": 37.30
+}
+
+注意：
+1. 商品名称中已去掉 "H" 标记，但根据原文本中的 "H" 标记设置了正确的 hasTax 值
+2. Tax 行的金额被关联到前面的 ORG BRD 商品的 taxAmount 字段
+3. TPD 折扣项的 price 是**正数 0.5**（不是 -0.5），系统会自动处理为负值
+4. 所有附加费用（押金、折扣）的 price 都必须是正数
+5. total 是小票上显示的最终应付金额`;

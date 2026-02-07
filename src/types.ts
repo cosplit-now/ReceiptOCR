@@ -86,6 +86,93 @@ export type VerificationCallback = (
 export type ImageInput = Buffer | string;
 
 /**
+ * 提取模式
+ */
+export type ExtractionMode = 
+  | 'multimodal'  // 默认：Gemini 多模态（图片 → 结构化数据）
+  | 'ocr-llm';    // 新增：OCR + LLM（图片 → 文本 → 结构化数据）
+
+/**
+ * OCR 配置
+ */
+export interface OcrConfig {
+  /** ppocr API URL */
+  apiUrl: string;
+  /** ppocr API Token */
+  token: string;
+  /** 文件类型：0=PDF, 1=图片 */
+  fileType?: 0 | 1;
+  /** 是否使用文档方向分类 */
+  useDocOrientationClassify?: boolean;
+  /** 是否使用文档展平 */
+  useDocUnwarping?: boolean;
+  /** 是否使用文本行方向检测 */
+  useTextlineOrientation?: boolean;
+}
+
+/**
+ * ppocr API 响应结构
+ */
+export interface PPocrResponse {
+  logId: string;
+  errorCode: number;
+  errorMsg: string;
+  result: {
+    dataInfo?: {
+      width: number;
+      height: number;
+      channels: number;
+    };
+    ocrResults: Array<{
+      prunedResult: {
+        dt_polys: number[][][];      // 检测框坐标数组
+        rec_texts: string[];          // 识别文本数组
+        rec_scores: number[];         // 识别置信度数组
+        rec_polys: number[][][];      // 识别框坐标数组
+        model_settings?: any;
+        text_det_params?: any;
+        text_type?: string;
+        textline_orientation_angles?: number[];
+        text_rec_score_thresh?: number;
+      };
+      ocrImage?: string;
+      docPreprocessingImage?: string;
+      inputImage?: string;
+    }>;
+  };
+}
+
+/**
+ * 单个文本块的几何和内容信息
+ */
+export interface TextBlock {
+  /** 文本内容 */
+  text: string;
+  /** 识别置信度 */
+  score: number;
+  /** Y轴中心点 */
+  yCenter: number;
+  /** 包围盒高度 */
+  height: number;
+  /** X轴起始坐标 */
+  xStart: number;
+  /** X轴结束坐标 */
+  xEnd: number;
+}
+
+/**
+ * 处理后的文本行
+ */
+export interface ProcessedTextLine {
+  /** 拼接后的文本（含双空格分隔） */
+  text: string;
+  /** 平均置信度 */
+  avgConfidence: number;
+  /** 是否有低置信度警告 */
+  hasLowConfidence: boolean;
+}
+
+/**
  * 提取选项
  */
 export interface ExtractOptions {
@@ -100,4 +187,16 @@ export interface ExtractOptions {
    * 默认 true
    */
   autoVerify?: boolean;
+  
+  /**
+   * 提取模式
+   * - 'multimodal'（默认）：使用 Gemini 多模态直接处理图片
+   * - 'ocr-llm'：先用 ppocr 提取文本，再用 Gemini 解析
+   */
+  mode?: ExtractionMode;
+  
+  /**
+   * OCR 配置（mode='ocr-llm' 时必需）
+   */
+  ocrConfig?: OcrConfig;
 }

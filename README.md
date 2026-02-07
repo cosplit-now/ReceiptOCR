@@ -23,11 +23,23 @@ pnpm add receipt-ocr
 在使用前，需要设置环境变量：
 
 ```bash
-# 必需
+# Gemini API（必需）
 export GEMINI_API_KEY=your-gemini-api-key
 
 # 可选（默认：gemini-2.0-flash）
 export GEMINI_MODEL=gemini-2.0-flash
+
+# ppocr API（使用 OCR + LLM 模式时需要）
+export PPOCR_API_URL=https://your-ppocr-api.com/ocr
+export PPOCR_TOKEN=your-ppocr-token
+```
+
+或创建 `.env` 文件：
+
+```env
+GEMINI_API_KEY="your-gemini-api-key"
+PPOCR_API_URL="https://your-ppocr-api.com/ocr"
+PPOCR_TOKEN="your-ppocr-token"
 ```
 
 ## 基础用法
@@ -101,6 +113,59 @@ interface ReceiptItem {
 - **折扣（discount）**：如 "TPD"，会被合并到对应的商品中（通常为负数）
 
 这意味着您不需要手动处理这些附加费用，它们会自动关联到正确的商品上。
+
+## 提取模式
+
+库支持两种提取模式，可通过 `mode` 参数选择：
+
+### 多模态模式（默认）
+
+```typescript
+// 方式 1: 不传 mode 参数（默认）
+const receipt = await extractReceiptItems(imageBuffer);
+
+// 方式 2: 显式指定
+const receipt = await extractReceiptItems(imageBuffer, {
+  mode: 'multimodal'
+});
+```
+
+**工作原理**：Gemini 直接分析图片，一步提取结构化数据  
+**优势**：精度高，适合复杂布局  
+**成本**：图片占用 2000-6000 tokens
+
+### OCR + LLM 模式
+
+```typescript
+const receipt = await extractReceiptItems(imageBuffer, {
+  mode: 'ocr-llm',  // 指定 OCR + LLM 模式
+  ocrConfig: {      // 必需：OCR API 配置
+    apiUrl: process.env.PPOCR_API_URL,
+    token: process.env.PPOCR_TOKEN,
+    fileType: 1,  // 1=图片, 0=PDF
+    // 可选参数
+    useDocOrientationClassify: false,
+    useDocUnwarping: false,
+    useTextlineOrientation: false,
+  }
+});
+```
+
+**工作原理**：
+1. ppocr 提取文本（800-1000 tokens）
+2. Gemini 解析文本（不用图片）
+
+**优势**：成本低（节省 60-80%）  
+**适用场景**：大批量处理、成本敏感
+
+### 模式选择建议
+
+| 场景 | 推荐模式 | 原因 |
+|------|---------|------|
+| 首次使用 | `multimodal` | 默认模式，精度最高 |
+| 高精度要求 | `multimodal` | 复杂布局识别更准确 |
+| 大批量处理 | `ocr-llm` | 节省 60-80% 成本 |
+| 成本敏感 | `ocr-llm` | 文本占用 tokens 更少 |
 
 ## 高级用法
 
@@ -220,6 +285,91 @@ await extractReceiptItems(url);
 - **图片大小限制**：单次请求（包括图片和提示文本）总大小不能超过 **20MB**
 - **URL 处理方式**：URL 图片会被自动下载并转换为 base64 后发送给 API
 - **性能建议**：对于购物小票等文档图片，通常大小在几百 KB 到几 MB 之间，完全在限制范围内
+
+## API 参考
+
+### `extractReceiptItems()`
+
+```typescript
+function extractReceiptItems(
+  image: ImageInput,
+  options?: ExtractOptions
+): Promise<ReceiptData>
+```
+
+**参数**：
+
+- `image: ImageInput` - 图片输入，支持 Buffer、Base64 字符串或图片 URL
+- `options?: ExtractOptions` - 可选配置对象
+
+**ExtractOptions 接口**：
+
+```typescript
+interface ExtractOptions {
+  // 提取模式（新增）
+  mode?: 'multimodal' | 'ocr-llm';  // 默认：'multimodal'
+  
+  // OCR 配置（mode='ocr-llm' 时必需）
+  ocrConfig?: {
+    apiUrl: string;                      // ppocr API 地址
+    token: string;                       // API token
+    fileType?: 0 | 1;                    // 0=PDF, 1=图片（默认：1）
+    useDocOrientationClassify?: boolean; // 文档方向分类（默认：false）
+    useDocUnwarping?: boolean;           // 文档矫正（默认：false）
+    useTextlineOrientation?: boolean;    // 文本行方向（默认：false）
+  };
+  
+  // 验证相关
+  autoVerify?: boolean;                  // 自动验证（默认：true）
+  verifyCallback?: VerificationCallback; // 自定义验证回调
+}
+```
+
+**返回值**：
+
+```typescript
+interface ReceiptData {
+  items: ReceiptItem[];  // 商品列表
+  total: number;         // 总金额
+}
+
+interface ReceiptItem {
+  name: string;          // 商品名称
+  price: number;         // 单价
+  quantity: number;      // 数量
+  hasTax: boolean;       // 是否含税
+  taxAmount?: number;    // 税额（可选）
+  deposit?: number;      // 押金（可选）
+  discount?: number;     // 折扣（可选）
+}
+```
+
+**使用示例**：
+
+```typescript
+// 默认模式（multimodal）
+const receipt = await extractReceiptItems(imageBuffer);
+
+// OCR + LLM 模式
+const receipt = await extractReceiptItems(imageBuffer, {
+  mode: 'ocr-llm',
+  ocrConfig: {
+    apiUrl: process.env.PPOCR_API_URL,
+    token: process.env.PPOCR_TOKEN,
+    fileType: 1
+  }
+});
+
+// 带自定义验证
+const receipt = await extractReceiptItems(imageBuffer, {
+  mode: 'ocr-llm',
+  ocrConfig: { ... },
+  verifyCallback: async (name, context) => {
+    const result = await searchDatabase(name);
+    return result ? { verifiedName: result } : null;
+  }
+});
+```
 
 ## 策略接口（供扩展）
 
